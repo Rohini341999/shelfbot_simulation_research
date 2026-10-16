@@ -1,0 +1,1 @@
+/home/roha/Projects/Shelfbot/ros2_ws/build/shelfbot_sim/ament_cmake_core/shelfbot_simConfig.cmake

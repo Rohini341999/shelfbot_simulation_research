@@ -1,0 +1,34 @@
+{
+  "link": "clamp_jaw_link",
+  "volume_mm3": 53983.03890967582,
+  "mass_kg": 0.1457542050561247,
+  "center_of_mass_mm": [
+    1.4376777617345132e-15,
+    -11.559186221512356,
+    6.05627398620261
+  ],
+  "inertia_tensor_kg_mm2": [
+    [
+      75.65269081417298,
+      -2.2545614278319103e-15,
+      6.086984301560064e-10
+    ],
+    [
+      -2.2545614278319103e-15,
+      87.5644249663455,
+      -10.203610404760779
+    ],
+    [
+      6.086984301560064e-10,
+      -10.203610404760779,
+      87.38392377876485
+    ]
+  ],
+  "watertight": true,
+  "bounding_box_mm": [
+    60.0,
+    52.0,
+    60.0
+  ],
+  "urdf_note": "origin at cylinder housing centre; housing axis along Y. Jaw slot opens -Z. Flange extends in -Y direction toward clamp_arm. Beam slot sized for 40x40 mm shelf beam + 3 mm clearance."
+}

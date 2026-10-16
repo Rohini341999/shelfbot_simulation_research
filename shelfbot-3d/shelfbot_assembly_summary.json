@@ -1,0 +1,11 @@
+{
+  "total_mass_kg": 3.232510261708824,
+  "robot_envelope_mm": {
+    "x_depth": 369.8427515944252,
+    "y_width": 260.0,
+    "z_height": 598.700576850888
+  },
+  "links": 5,
+  "joints": 4,
+  "all_links_watertight": false
+}

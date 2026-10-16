@@ -1,0 +1,482 @@
+<?xml version="1.0"?>
+<!--
+  shelfbot.urdf.xacro — v3 (rack-climbing + bottle-grabbing)
+
+  NEW vs v2:
+  • climb_joint (prismatic, Z-axis) inserted between clamp_arm and clamp_jaw
+    → lets the robot body ride up the rail after hooking it
+  • gripper_finger_left / gripper_finger_right (revolute, Y-axis) added as
+    children of gripper_link → open/close jaw actuated in sim
+  • camera upgraded: forward-facing RGB-D on a pan joint so it can look up
+    at higher shelf levels
+  • camera_pan_joint (revolute, Z-axis) added on camera mast
+
+  FULL KINEMATIC TREE:
+  world → base_footprint → base_link
+    ├── wheel_left_link     (continuous Y)
+    ├── wheel_right_link    (continuous Y)
+    ├── caster_link         (fixed)
+    ├── camera_mast_link    (fixed, raised post)
+    │     └── camera_pan_link (revolute Z) → camera_link (fixed) → camera_optical_link
+    ├── imu_link            (fixed)
+    ├── clamp_arm_link      (revolute Y — swing arm up)
+    │     └── climb_carriage_link  (prismatic Z — ride up the rail)
+    │           └── clamp_jaw_link (revolute Y — hook onto beam)
+    └── manip_proximal_link (revolute Y — shoulder)
+          └── gripper_link  (revolute Y — wrist)
+                ├── gripper_finger_left  (revolute Y — close jaw)
+                └── gripper_finger_right (revolute Y — close jaw)
+-->
+<robot name="shelfbot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ══════ PARAMETERS ══════════════════════════════════════════════════ -->
+  <xacro:property name="wheel_radius"  value="0.075"/>
+  <xacro:property name="wheel_width"   value="0.040"/>
+  <xacro:property name="wheel_sep"     value="0.300"/>
+  <xacro:property name="caster_radius" value="0.025"/>
+  <xacro:property name="body_h"        value="0.260"/>
+  <xacro:property name="body_d"        value="0.200"/>
+  <xacro:property name="body_w"        value="0.340"/>
+  <xacro:property name="climb_stroke"  value="1.400"/>  <!-- 1.4 m max climb height -->
+
+  <!-- ══════ MATERIALS ═══════════════════════════════════════════════════ -->
+  <material name="shelfbot_amber">  <color rgba="0.95 0.55 0.05 1.0"/> </material>
+  <material name="shelfbot_black">  <color rgba="0.12 0.12 0.12 1.0"/> </material>
+  <material name="shelfbot_orange"> <color rgba="0.90 0.40 0.02 1.0"/> </material>
+  <material name="shelfbot_rope">   <color rgba="0.45 0.35 0.25 1.0"/> </material>
+  <material name="shelfbot_rubber"> <color rgba="0.15 0.15 0.15 1.0"/> </material>
+  <material name="shelfbot_grey">   <color rgba="0.60 0.60 0.60 1.0"/> </material>
+
+  <!-- ══════ WORLD + BASE FOOTPRINT ══════════════════════════════════════ -->
+  <link name="world"/>
+  <link name="base_footprint">
+    <visual><geometry><box size="0.001 0.001 0.001"/></geometry></visual>
+  </link>
+  <joint name="world_to_base_footprint" type="fixed">
+    <parent link="world"/><child link="base_footprint"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <joint name="base_footprint_to_base" type="fixed">
+    <parent link="base_footprint"/><child link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ══════ BASE LINK ════════════════════════════════════════════════════
+       base_link origin = wheel axle centre (0.075 m above ground).
+       The STL mesh was built with origin at the geometric body centre
+       (z=0 = body midpoint), so the visual MUST be offset by +body_h/2
+       (+0.130 m) to lift it above the axle.  Without this offset the body
+       bottom edge is at  0.075 - 0.130 = -0.055 m (below ground), which
+       causes Gazebo to tilt and half-bury the robot on spawn.
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <link name="base_link">
+    <visual>
+      <!-- +body_h/2 lifts the mesh so its bottom sits at the wheel axle line -->
+      <origin xyz="0 0 ${body_h/2}" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://shelfbot_description/meshes/visual/base_link.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="shelfbot_amber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${body_h/2}" rpy="0 0 0"/>
+      <geometry><box size="${body_d} ${body_w} ${body_h}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0.000803 -0.000049 0.130" rpy="0 0 0"/>
+      <mass value="1.6826"/>
+      <inertia ixx="0.036796" ixy="-0.000000066" ixz="-0.000013405"
+               iyy="0.032397"                     iyz="-0.0000000062"
+               izz="0.024299"/>
+    </inertial>
+  </link>
+
+  <!-- ══════ DRIVE WHEELS ══════════════════════════════════════════════════ -->
+  <xacro:macro name="wheel" params="name y_sign">
+    <link name="wheel_${name}_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="shelfbot_rubber"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.3"/>
+        <inertia ixx="0.000603" ixy="0" ixz="0" iyy="0.000603" iyz="0" izz="0.000844"/>
+      </inertial>
+    </link>
+    <joint name="wheel_${name}_joint" type="continuous">
+      <parent link="base_link"/><child link="wheel_${name}_link"/>
+      <origin xyz="0 ${y_sign * wheel_sep/2} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.01" friction="0.1"/>
+    </joint>
+    <gazebo reference="wheel_${name}_link"><mu1>1.0</mu1><mu2>1.0</mu2></gazebo>
+  </xacro:macro>
+  <xacro:wheel name="left"  y_sign="1"/>
+  <xacro:wheel name="right" y_sign="-1"/>
+
+  <!-- Rear caster -->
+  <link name="caster_link">
+    <visual><geometry><sphere radius="${caster_radius}"/></geometry><material name="shelfbot_grey"/></visual>
+    <collision><geometry><sphere radius="${caster_radius}"/></geometry></collision>
+    <inertial><mass value="0.1"/>
+      <inertia ixx="0.000010" ixy="0" ixz="0" iyy="0.000010" iyz="0" izz="0.000010"/>
+    </inertial>
+  </link>
+  <joint name="caster_joint" type="fixed">
+    <parent link="base_link"/><child link="caster_link"/>
+    <origin xyz="${-body_d/2+0.03} 0 ${-wheel_radius+caster_radius}" rpy="0 0 0"/>
+  </joint>
+  <gazebo reference="caster_link"><mu1>0.0</mu1><mu2>0.0</mu2><kp>1e6</kp><kd>100.0</kd></gazebo>
+
+  <!-- ══════ CAMERA MAST + PAN ═════════════════════════════════════════════
+       Mast is a fixed post on top of the body.
+       Pan joint lets the camera sweep left/right to scan the shelf.
+       Camera tilts slightly downward from mast tip to see shelf levels.
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <link name="camera_mast_link">
+    <visual>
+      <origin xyz="0 0 0.100" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.200"/></geometry>
+      <material name="shelfbot_black"/>
+    </visual>
+    <inertial><mass value="0.05"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="camera_mast_joint" type="fixed">
+    <parent link="base_link"/><child link="camera_mast_link"/>
+    <!-- Top-centre of body -->
+    <origin xyz="0.040 0.0 ${body_h}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_pan_link">
+    <visual>
+      <origin xyz="0 0 0.010" rpy="0 0 0"/>
+      <geometry><box size="0.040 0.040 0.020"/></geometry>
+      <material name="shelfbot_black"/>
+    </visual>
+    <inertial><mass value="0.03"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <joint name="camera_pan_joint" type="revolute">
+    <parent link="camera_mast_link"/><child link="camera_pan_link"/>
+    <origin xyz="0 0 0.200" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <!-- ±90° pan to scan both sides of the aisle -->
+    <limit lower="-1.571" upper="1.571" effort="5.0" velocity="1.0"/>
+    <dynamics damping="0.3" friction="0.05"/>
+  </joint>
+
+  <!-- Camera body on pan link, tilted 15° downward to see shelf levels -->
+  <link name="camera_link">
+    <visual>
+      <geometry><box size="0.060 0.080 0.035"/></geometry>
+      <material name="shelfbot_black"/>
+    </visual>
+    <inertial><mass value="0.08"/>
+      <inertia ixx="0.000002" ixy="0" ixz="0" iyy="0.000002" iyz="0" izz="0.000002"/>
+    </inertial>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="camera_pan_link"/><child link="camera_link"/>
+    <!-- Slight downward tilt (−15°) so camera sees shelf from above -->
+    <origin xyz="0.030 0 0" rpy="0 0.262 0"/>
+  </joint>
+
+  <!-- Optical frame: z-forward, x-right, y-down (ROS convention) -->
+  <link name="camera_optical_link">
+    <inertial><mass value="0.001"/>
+      <inertia ixx="1e-7" ixy="0" ixz="0" iyy="1e-7" iyz="0" izz="1e-7"/>
+    </inertial>
+  </link>
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/><child link="camera_optical_link"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <!-- ══════ IMU ═══════════════════════════════════════════════════════════ -->
+  <link name="imu_link">
+    <inertial><mass value="0.01"/>
+      <inertia ixx="1e-7" ixy="0" ixz="0" iyy="1e-7" iyz="0" izz="1e-7"/>
+    </inertial>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/><child link="imu_link"/>
+    <origin xyz="0 0 ${body_h/2}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ══════ CLAMP ARM → CLIMB CARRIAGE → CLAMP JAW ══════════════════════
+       clamp_arm_joint : revolute Y — swings the arm up to engage the rail
+       climb_joint     : prismatic Z — slides the body UP the rail after hooking
+       clamp_jaw_joint : revolute Y — rotates jaw to lock onto beam
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <joint name="clamp_arm_joint" type="revolute">
+    <parent link="base_link"/><child link="clamp_arm_link"/>
+    <origin xyz="-0.060 0.0 0.130" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.571" upper="1.571" effort="80.0" velocity="0.8"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <link name="clamp_arm_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://shelfbot_description/meshes/visual/clamp_arm_link.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="shelfbot_black"/>
+    </visual>
+    <collision>
+      <origin xyz="0.190 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.388 0.030 0.020"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0.1953 0.0 0.0" rpy="0 0 0"/>
+      <mass value="0.6653"/>
+      <inertia ixx="0.0000773" ixy="0" ixz="0" iyy="0.009288" iyz="0" izz="0.009316"/>
+    </inertial>
+  </link>
+
+  <!-- climb_carriage — the sliding element that moves up the rail.
+       In simulation this is modelled as a prismatic joint.
+       At z=0 robot is at floor; at z=climb_stroke robot is at top shelf. -->
+  <joint name="climb_joint" type="prismatic">
+    <parent link="clamp_arm_link"/><child link="climb_carriage_link"/>
+    <!-- Attached at the tip of the clamp arm, slides in Z (vertical) -->
+    <origin xyz="0.388 0.0 0.0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0.0" upper="${climb_stroke}" effort="200.0" velocity="0.3"/>
+    <dynamics damping="5.0" friction="2.0"/>
+  </joint>
+
+  <link name="climb_carriage_link">
+    <visual>
+      <!-- Small carriage block riding on the upright rail -->
+      <geometry><box size="0.060 0.060 0.080"/></geometry>
+      <material name="shelfbot_orange"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.060 0.060 0.080"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.4"/>
+      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <!-- clamp_jaw hooks onto the horizontal beam of the shelf upright -->
+  <joint name="clamp_jaw_joint" type="revolute">
+    <parent link="climb_carriage_link"/><child link="clamp_jaw_link"/>
+    <origin xyz="0.0 0.0 0.040" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.785" upper="0.785" effort="30.0" velocity="1.0"/>
+    <dynamics damping="0.3" friction="0.05"/>
+  </joint>
+
+  <link name="clamp_jaw_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://shelfbot_description/meshes/visual/clamp_jaw_link.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="shelfbot_orange"/>
+    </visual>
+    <collision><geometry><cylinder radius="0.030" length="0.044"/></geometry></collision>
+    <inertial>
+      <origin xyz="0.0 -0.01156 0.00606" rpy="0 0 0"/>
+      <mass value="0.1458"/>
+      <inertia ixx="0.0000757" ixy="0" ixz="0" iyy="0.0000876" iyz="-0.0000102" izz="0.0000874"/>
+    </inertial>
+  </link>
+
+  <!-- ══════ MANIPULATOR ARM + GRIPPER ════════════════════════════════════
+       manip_shoulder_joint : revolute Y — raises/lowers arm
+       gripper_joint        : revolute Y — wrist rotation
+       gripper_finger_left  : revolute Y — open left jaw finger
+       gripper_finger_right : revolute Y — open right jaw finger (mirrored)
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <joint name="manip_shoulder_joint" type="revolute">
+    <parent link="base_link"/><child link="manip_proximal_link"/>
+    <origin xyz="0.100 0.0 -0.052" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.571" upper="1.571" effort="80.0" velocity="1.0"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <link name="manip_proximal_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://shelfbot_description/meshes/visual/manip_proximal_link.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="shelfbot_black"/>
+    </visual>
+    <collision>
+      <origin xyz="0.080 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.168 0.025 0.020"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0.09070 0.0 0.0" rpy="0 0 0"/>
+      <mass value="0.2666"/>
+      <inertia ixx="0.0000317" ixy="0" ixz="0" iyy="0.0008299" iyz="0" izz="0.0008341"/>
+    </inertial>
+  </link>
+
+  <joint name="gripper_joint" type="revolute">
+    <parent link="manip_proximal_link"/><child link="gripper_link"/>
+    <origin xyz="0.168 0.0 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.571" upper="1.571" effort="40.0" velocity="2.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="gripper_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://shelfbot_description/meshes/visual/gripper_link.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="shelfbot_rope"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.015 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.068 0.108 0.108"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-0.01496 0.0 0.0" rpy="0 0 0"/>
+      <mass value="0.4723"/>
+      <inertia ixx="0.0008638" ixy="0" ixz="0" iyy="0.0005820" iyz="0" izz="0.0006041"/>
+    </inertial>
+  </link>
+
+  <!-- Left gripper finger — opens +Y direction -->
+  <link name="gripper_finger_left">
+    <visual>
+      <origin xyz="-0.030 0.020 0" rpy="0 0 0"/>
+      <geometry><box size="0.060 0.015 0.080"/></geometry>
+      <material name="shelfbot_rope"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.030 0.020 0" rpy="0 0 0"/>
+      <geometry><box size="0.060 0.015 0.080"/></geometry>
+    </collision>
+    <inertial><mass value="0.08"/>
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00002"/>
+    </inertial>
+  </link>
+  <joint name="gripper_finger_left_joint" type="revolute">
+    <parent link="gripper_link"/><child link="gripper_finger_left"/>
+    <origin xyz="-0.010 0.040 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <!-- 0 = fully open, 0.8 rad ≈ closed enough to grip a bottle -->
+    <limit lower="0.0" upper="0.800" effort="20.0" velocity="1.5"/>
+    <dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <!-- Right gripper finger — mirrors left, opens −Y direction -->
+  <link name="gripper_finger_right">
+    <visual>
+      <origin xyz="-0.030 -0.020 0" rpy="0 0 0"/>
+      <geometry><box size="0.060 0.015 0.080"/></geometry>
+      <material name="shelfbot_rope"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.030 -0.020 0" rpy="0 0 0"/>
+      <geometry><box size="0.060 0.015 0.080"/></geometry>
+    </collision>
+    <inertial><mass value="0.08"/>
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00002"/>
+    </inertial>
+  </link>
+  <joint name="gripper_finger_right_joint" type="revolute">
+    <parent link="gripper_link"/><child link="gripper_finger_right"/>
+    <origin xyz="-0.010 -0.040 0" rpy="0 0 0"/>
+    <axis xyz="0 0 -1"/>  <!-- mirror: closing rotates opposite direction -->
+    <limit lower="0.0" upper="0.800" effort="20.0" velocity="1.5"/>
+    <dynamics damping="0.1" friction="0.02"/>
+  </joint>
+
+  <!-- ══════ GAZEBO PLUGINS ════════════════════════════════════════════════ -->
+  <gazebo>
+    <plugin filename="gz-sim8-physics-system"        name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim8-user-commands-system"  name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim8-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim8-sensors-system"        name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim8-imu-system"            name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim8-contact-system"        name="gz::sim::systems::Contact"/>
+
+    <plugin filename="gz-sim8-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>wheel_left_joint</left_joint>
+      <right_joint>wheel_right_joint</right_joint>
+      <wheel_separation>${wheel_sep}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <min_linear_acceleration>-1.0</min_linear_acceleration>
+      <max_angular_acceleration>2.0</max_angular_acceleration>
+      <min_angular_acceleration>-2.0</min_angular_acceleration>
+    </plugin>
+
+    <plugin filename="gz-sim8-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
+
+    <plugin filename="gz-sim8-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+    </plugin>
+  </gazebo>
+
+  <!-- ── RGB-D camera sensor on camera_link ── -->
+  <gazebo reference="camera_link">
+    <sensor name="rgbd_camera" type="rgbd_camera">
+      <always_on>1</always_on>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+        <clip><near>0.05</near><far>8.0</far></clip>
+        <depth_camera><clip><near>0.1</near><far>5.0</far></clip></depth_camera>
+      </camera>
+      <topic>/camera</topic>
+    </sensor>
+  </gazebo>
+
+  <!-- ── IMU sensor ── -->
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <topic>/imu/data</topic>
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0</mean><stddev>0.009</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0</mean><stddev>0.009</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0</mean><stddev>0.009</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0</mean><stddev>0.021</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0</mean><stddev>0.021</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0</mean><stddev>0.021</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+</robot>

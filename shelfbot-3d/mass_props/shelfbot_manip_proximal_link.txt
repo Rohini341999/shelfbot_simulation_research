@@ -1,0 +1,34 @@
+{
+  "link": "manip_proximal_link",
+  "volume_mm3": 98729.72395866457,
+  "mass_kg": 0.26657025468839435,
+  "center_of_mass_mm": [
+    90.70444484536418,
+    2.456523838497941e-17,
+    -7.369571515493824e-17
+  ],
+  "inertia_tensor_kg_mm2": [
+    [
+      31.65059648196633,
+      5.939655265016173e-16,
+      -1.016379975104416e-14
+    ],
+    [
+      5.939655265016173e-16,
+      829.8654079859127,
+      -2.514570951461792e-16
+    ],
+    [
+      -1.016379975104416e-14,
+      -2.514570951461792e-16,
+      834.0590430459442
+    ]
+  ],
+  "watertight": true,
+  "bounding_box_mm": [
+    182.0,
+    48.0417366027832,
+    48.0417366027832
+  ],
+  "urdf_note": "origin at shoulder boss centre (x=0); arm extends +X. In URDF, parent joint places this at body lower-front face; shoulder joint axis is along Y (horizontal, parallel to shelf)."
+}

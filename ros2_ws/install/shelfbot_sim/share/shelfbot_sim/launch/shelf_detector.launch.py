@@ -1,0 +1,1 @@
+/home/roha/Projects/Shelfbot/ros2_ws/src/shelfbot_sim/launch/shelf_detector.launch.py

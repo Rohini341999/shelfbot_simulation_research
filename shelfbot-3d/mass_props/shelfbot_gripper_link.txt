@@ -1,0 +1,35 @@
+{
+  "link": "gripper_link",
+  "volume_mm3": 393583.5287244466,
+  "mass_kg": 0.4723002344693359,
+  "center_of_mass_mm": [
+    -14.960620380688507,
+    0.0,
+    3.943773501031131e-16
+  ],
+  "inertia_tensor_kg_mm2": [
+    [
+      863.7913660514926,
+      -1.9073486328125e-14,
+      1.981738883873726e-15
+    ],
+    [
+      -1.9073486328125e-14,
+      581.9587005781403,
+      -1.2785926342010498e-07
+    ],
+    [
+      1.981738883873726e-15,
+      -1.2785926342010498e-07,
+      604.0532734758314
+    ]
+  ],
+  "watertight_collision": true,
+  "watertight_visual": true,
+  "bounding_box_mm": [
+    67.5,
+    107.6311264038086,
+    108.0
+  ],
+  "urdf_note": "origin at palm wrist-bore centre (front face of palm). Fingers extend -X (forward toward product). Use collision STL for sim; visual STL for display. Inner jaw radius 36 mm fits product bottles 60-70 mm diameter."
+}

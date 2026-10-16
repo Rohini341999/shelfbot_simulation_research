@@ -1,0 +1,34 @@
+{
+  "link": "clamp_arm_link",
+  "volume_mm3": 246412.9554862673,
+  "mass_kg": 0.6653149798129218,
+  "center_of_mass_mm": [
+    195.3308858828386,
+    3.1495995978837697e-16,
+    0.0
+  ],
+  "inertia_tensor_kg_mm2": [
+    [
+      77.31008768194357,
+      -1.3073026265610133e-13,
+      -2.1457672119140625e-14
+    ],
+    [
+      -1.3073026265610133e-13,
+      9288.160432224453,
+      6.705522537231445e-16
+    ],
+    [
+      -2.1457672119140625e-14,
+      6.705522537231445e-16,
+      9316.17881260455
+    ]
+  ],
+  "watertight": true,
+  "bounding_box_mm": [
+    400.0,
+    45.0,
+    35.0
+  ],
+  "urdf_note": "origin at boss centre (x=0); arm extends +X to x=ARM_LENGTH. In URDF, parent joint places this at body top-rear; rotate ~45 deg about Y to achieve diagonal pose."
+}
