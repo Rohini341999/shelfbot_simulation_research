@@ -235,28 +235,6 @@ git push --no-verify
 
 ---
 
-## 🗺️ Roadmap (PhD / Startup Milestones)
-
-| Phase | Weeks | Focus |
-|-------|-------|-------|
-| **L0** | 1–4 | Differential drive nav, basic URDF, RViz/Gazebo bringup |
-| **L1** | 5–9 | Shelf detection, climb FSM (attach/detach), mission logic |
-| **L2** | 10–11 | Contact gripping (experimental, may cut) |
-| **Freeze** | 12 | Integration, hardening, thesis/write-up |
-
-**New features frozen after Week 9** — cut order: weeks 10–11 first, never weeks 1–9 or 12.
-
----
-
-## 👤 Author
-
-**Rohini Narayan Koli**  
-PhD Researcher & Founder, ShelfBot  
-Berlin, Germany  
-📧 rohinikoli762@gmail.com
-
----
-
 ## 📄 License
 
 Apache License 2.0 — see `LICENSE` (to be added) or individual `package.xml` files.
