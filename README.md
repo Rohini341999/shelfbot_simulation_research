@@ -6,7 +6,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
 ![FreeCAD](https://img.shields.io/badge/FreeCAD-1.x-yellow.svg)
 
-> **ShelfBot** is an autonomous shelf-restocking robot startup and PhD research project (founder: **Rohini Narayan Koli**, Berlin). This repository contains the complete ROS 2 simulation workspace, FreeCAD-based 3D mesh generation scripts, and launch configurations for Gazebo Harmonic simulation.
+> **ShelfBot** is an autonomous shelf-restocking robot . This repository contains the complete ROS 2 simulation workspace, FreeCAD-based 3D mesh generation scripts, and launch configurations for Gazebo Harmonic simulation.
 
 ---
 
